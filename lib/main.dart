@@ -60,34 +60,65 @@ class HomePageState extends State<HomePage> {
           });
         }
       } else {
-        // If the file was deleted externally, remove metadata
+
         prefs.remove('uploadedFileName');
       }
     }
   }
 
   void _uploadFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-    );
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+        allowMultiple: false,
+      );
 
-    if (result != null) {
-      File file = File(result.files.single.path!);
-      String fileName = result.files.single.name;
+      if (result != null) {
+        File file = File(result.files.single.path!);
+        String fileName = result.files.single.name;
 
-      // Save the file locally
-      await DatabaseHelper.instance.saveFile(file);
+        // Verify file extension
+        if (!fileName.toLowerCase().endsWith('.xlsx') &&
+            !fileName.toLowerCase().endsWith('.xls')) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please select an Excel file (.xlsx or .xls)'),
+              ),
+            );
+          }
+          return;
+        }
 
-      // Save file name in SharedPreferences
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('uploadedFileName', fileName);
+        // Save the file locally
+        await DatabaseHelper.instance.saveFile(file);
 
+        // Save file name in SharedPreferences
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('uploadedFileName', fileName);
+
+        if (mounted) {
+          setState(() {
+            _file = file;
+            _fileName = fileName;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File uploaded successfully: $fileName'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading file: $e');
       if (mounted) {
-        setState(() {
-          _file = file;
-          _fileName = fileName;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error uploading file. Please try again.'),
+          ),
+        );
       }
     }
   }
